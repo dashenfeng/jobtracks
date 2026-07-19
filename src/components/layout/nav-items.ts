@@ -1,4 +1,5 @@
 import {
+  Sparkles,
   Briefcase,
   BarChart3,
   CalendarDays,
@@ -28,6 +29,7 @@ export const navSections: NavSection[] = [
   {
     section: '工作台',
     items: [
+      { href: '/ai-agent', label: 'AI 助手', icon: Sparkles, group: '工作台' },
       { href: '/applications', label: '投递管理', icon: Briefcase, group: '工作台' },
       { href: '/applications/analytics', label: '数据分析', icon: BarChart3, group: '工作台' },
       { href: '/interviews', label: '面试日程', icon: CalendarDays, group: '工作台' },
