@@ -1,0 +1,296 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [citext]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  password      String?
+  role          Role      @default(USER)
+  preferences   Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  applications  Application[]
+  interviews    Interview[]
+  interviewQuestions InterviewQuestion[]
+  envVaults     EnvVault[]
+  snapshots     Snapshot[]
+  changelogs    Changelog[]
+  auditLogs     AuditLog[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Application {
+  id          String    @id @default(cuid())
+  companyName String
+  jobTitle    String
+  jobUrl      String?
+  city        String?
+  channel     Channel   @default(OTHER)
+  status      Status    @default(PENDING)
+  salaryRange String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+  interviews  Interview[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, updatedAt])
+}
+
+model Attachment {
+  id            String    @id @default(cuid())
+  fileName      String
+  fileUrl       String
+  fileType      String
+  createdAt     DateTime  @default(now())
+
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+}
+
+model Interview {
+  id            String          @id @default(cuid())
+  round         Int
+  type          InterviewType
+  scheduledAt   DateTime
+  durationMin   Int?
+  location      String?
+  interviewer   String?
+  status        InterviewStatus @default(SCHEDULED)
+  overallNotes  String?         @db.Text
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  applicationId String
+  application   Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions     InterviewQuestion[]
+
+  @@index([applicationId])
+  @@index([userId, scheduledAt])
+}
+
+model InterviewQuestion {
+  id              String              @id @default(cuid())
+  question        String              @db.Text
+  myAnswer        String?             @db.Text
+  referenceAnswer String?             @db.Text
+  tags            String[]
+  difficulty      QuestionDifficulty
+  performance     QuestionPerformance
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  interviewId     String
+  interview       Interview           @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([interviewId])
+  @@index([userId, performance])
+}
+
+model EnvVault {
+  id            String    @id @default(cuid())
+  key           String
+  value         String    @db.Text
+  tags          String[]
+  notes         String?
+
+  viewCount     Int       @default(0)
+  lastViewedAt  DateTime?
+  lastCopiedAt  DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  action        AuditAction
+  targetType    String
+  targetId      String
+  metadata      Json?
+
+  createdAt     DateTime    @default(now())
+
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Snapshot {
+  id            String    @id @default(cuid())
+  name          String
+  content       String    @db.Text
+  contentType   String
+  remarks       String?
+
+  tags          String[]
+  project       String?
+  isBaseline    Boolean   @default(false)
+  baselineId    String?
+  contentLength Int       @default(0)
+
+  createdAt     DateTime  @default(now())
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, project])
+}
+
+model Changelog {
+  id            String    @id @default(cuid())
+  version       String
+  releasedAt    DateTime
+  screenshots   String[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  changes       Change[]
+
+  @@index([userId])
+}
+
+model Change {
+  id            String     @id @default(cuid())
+  type          ChangeType
+  description   String     @db.Text
+
+  changelogId   String
+  changelog     Changelog  @relation(fields: [changelogId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Channel {
+  BOSS
+  NIUKER
+  OFFICIAL
+  REFERRAL
+  OTHER
+}
+
+enum Status {
+  PENDING
+  APPLIED
+  WRITTEN
+  INTERVIEW_1
+  INTERVIEW_2
+  INTERVIEW_3
+  HR
+  OFFER
+  REJECTED
+  ABANDONED
+}
+
+enum AuditAction {
+  VIEW
+  COPY
+  CREATE
+  UPDATE
+  DELETE
+  ROTATE
+}
+
+enum ChangeType {
+  NEW
+  FIX
+  IMPROVED
+  BREAKING
+}
+
+enum InterviewType {
+  VIDEO
+  PHONE
+  ONSITE
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionPerformance {
+  GOOD
+  OKAY
+  POOR
+}
