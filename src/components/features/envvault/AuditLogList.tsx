@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AuditAction, AuditLog } from '@prisma/client';
-import { Loader2, Inbox, Filter } from 'lucide-react';
+import { Loader2, Inbox, Filter, Download } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,36 +23,26 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatDateTime } from '@/lib/utils';
+import {
+  ACTION_LABELS,
+  TARGET_TYPE_LABELS,
+  TARGET_TYPE_OPTIONS,
+} from '@/lib/constants/audit-log';
 
-/** 审计动作中文映射 + Badge 颜色 */
-const ACTION_MAP: Record<
-  AuditAction,
-  { label: string; badge: 'default' | 'secondary' | 'destructive' | 'outline' }
-> = {
-  VIEW: { label: '查看', badge: 'secondary' },
-  COPY: { label: '复制', badge: 'secondary' },
-  CREATE: { label: '创建', badge: 'default' },
-  UPDATE: { label: '更新', badge: 'default' },
-  DELETE: { label: '删除', badge: 'destructive' },
-  ROTATE: { label: '轮换', badge: 'outline' },
+/** Badge 颜色映射（按动作严重程度） */
+const ACTION_BADGE: Record<AuditAction, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  VIEW: 'secondary',
+  COPY: 'secondary',
+  CREATE: 'default',
+  UPDATE: 'default',
+  DELETE: 'destructive',
+  ROTATE: 'outline',
 };
 
-const ACTION_OPTIONS: { value: AuditAction; label: string }[] = [
-  { value: 'VIEW', label: '查看' },
-  { value: 'COPY', label: '复制' },
-  { value: 'CREATE', label: '创建' },
-  { value: 'UPDATE', label: '更新' },
-  { value: 'DELETE', label: '删除' },
-  { value: 'ROTATE', label: '轮换' },
-];
-
-/** targetType 中文映射 */
-const TARGET_TYPE_MAP: Record<string, string> = {
-  EnvVault: '环境变量',
-  Application: '投递记录',
-  Interview: '面试记录',
-  InterviewQuestion: '面经题目',
-};
+const ACTION_OPTIONS_LIST = Object.entries(ACTION_LABELS).map(([value, label]) => ({
+  value: value as AuditAction,
+  label,
+}));
 
 type AuditLogItem = AuditLog;
 
@@ -64,23 +54,49 @@ interface AuditLogListResponse {
   totalPages: number;
 }
 
+/**
+ * 根据 targetType 从 metadata 提取主标识字段
+ * - EnvVault: key
+ * - Snapshot: name
+ * - Changelog: version
+ * - 批量操作（targetId='all'）: 显示「批量」
+ */
+function extractLabel(log: AuditLogItem): string {
+  const meta = (log.metadata ?? {}) as Record<string, unknown>;
+  if (typeof meta.key === 'string') return meta.key;
+  if (typeof meta.name === 'string') return meta.name;
+  if (typeof meta.version === 'string') return meta.version;
+  if (log.targetId === 'all') return '（批量）';
+  return '-';
+}
+
 export function AuditLogList() {
   const [data, setData] = useState<AuditLogListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [action, setAction] = useState<AuditAction | 'all'>('all');
+  const [targetType, setTargetType] = useState<string>('all');
+  const [exporting, setExporting] = useState(false);
 
   const pageSize = 20;
+
+  const buildParams = useCallback(
+    (overrides?: { page?: number; pageSize?: number }) => {
+      const params = new URLSearchParams({
+        page: String(overrides?.page ?? page),
+        pageSize: String(overrides?.pageSize ?? pageSize),
+      });
+      if (action !== 'all') params.set('action', action);
+      if (targetType !== 'all') params.set('targetType', targetType);
+      return params;
+    },
+    [page, action, targetType],
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
-      });
-      if (action !== 'all') params.set('action', action);
-      const res = await fetch(`/api/audit-logs?${params}`);
+      const res = await fetch(`/api/audit-logs?${buildParams()}`);
       if (!res.ok) throw new Error('加载失败');
       const json = await res.json();
       setData(json);
@@ -89,7 +105,8 @@ export function AuditLogList() {
     } finally {
       setLoading(false);
     }
-  }, [page, action]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, action, targetType]);
 
   useEffect(() => {
     loadData();
@@ -100,28 +117,96 @@ export function AuditLogList() {
     setPage(1);
   }
 
+  function handleTargetTypeChange(v: string) {
+    setTargetType(v);
+    setPage(1);
+  }
+
+  /** 导出当前筛选条件下的审计日志为 CSV */
+  async function handleExport() {
+    setExporting(true);
+    try {
+      // 导出不分页，只带筛选条件
+      const params = new URLSearchParams();
+      if (action !== 'all') params.set('action', action);
+      if (targetType !== 'all') params.set('targetType', targetType);
+
+      const res = await fetch(`/api/audit-logs/export?${params}`);
+      if (!res.ok) throw new Error('导出失败');
+
+      // 从 Content-Disposition 提取文件名
+      const cd = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const filename = match?.[1] || `audit-logs-${Date.now()}.csv`;
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // 静默失败，避免 alert 打扰
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* 筛选区 */}
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Filter className="size-4" />
-            <span>按动作筛选</span>
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Filter className="size-4" />
+              <span>筛选</span>
+            </div>
+            <Select value={action} onValueChange={handleActionChange}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectValue placeholder="全部动作" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部动作</SelectItem>
+                {ACTION_OPTIONS_LIST.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={targetType} onValueChange={handleTargetTypeChange}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectValue placeholder="全部类型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部类型</SelectItem>
+                {TARGET_TYPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={action} onValueChange={handleActionChange}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="全部动作" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部动作</SelectItem>
-              {ACTION_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting || !data || data.total === 0}
+            title="导出当前筛选条件下的审计日志为 CSV"
+          >
+            {exporting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            导出 CSV
+          </Button>
         </CardContent>
       </Card>
 
@@ -141,7 +226,7 @@ export function AuditLogList() {
               <div>
                 <p className="font-medium text-foreground">暂无审计日志</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  在 EnvVault 中查看或复制环境变量后会在此记录
+                  在 EnvVault、Snapshot、Changelog 中的操作会在此记录
                 </p>
               </div>
             </div>
@@ -151,24 +236,23 @@ export function AuditLogList() {
                 <TableRow>
                   <TableHead className="w-[100px]">动作</TableHead>
                   <TableHead className="w-[120px]">目标类型</TableHead>
-                  <TableHead>键名</TableHead>
+                  <TableHead>键名/版本</TableHead>
                   <TableHead className="w-[180px]">时间</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.items.map((log) => {
-                  const actionConfig = ACTION_MAP[log.action];
-                  const targetLabel = TARGET_TYPE_MAP[log.targetType] ?? log.targetType;
-                  // metadata 结构：{ key?: string }
-                  const meta = (log.metadata ?? {}) as { key?: string };
+                  const targetLabel = TARGET_TYPE_LABELS[log.targetType] ?? log.targetType;
                   return (
                     <TableRow key={log.id}>
                       <TableCell>
-                        <Badge variant={actionConfig.badge}>{actionConfig.label}</Badge>
+                        <Badge variant={ACTION_BADGE[log.action]}>
+                          {ACTION_LABELS[log.action]}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-foreground">{targetLabel}</TableCell>
                       <TableCell className="font-mono text-sm text-muted-foreground">
-                        {meta.key ?? '-'}
+                        {extractLabel(log)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDateTime(log.createdAt)}
