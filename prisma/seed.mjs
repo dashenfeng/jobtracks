@@ -23,6 +23,11 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  // ⚠️ 安全保护：生产环境跳过测试账号创建，避免部署后存在已知密码的账号
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Production 环境跳过测试账号 seed');
+    return;
+  }
   const password = await bcrypt.hash('123456', 10);
   const user = await prisma.user.upsert({
     where: { email: 'test@jobtracks.com' },
@@ -33,7 +38,7 @@ async function main() {
       password,
     },
   });
-  console.log('Seed 完成:', user.email, '| 密码: 123456');
+  console.log('Seed 完成（仅本地开发用）:', user.email);
 }
 
 main()

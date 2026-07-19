@@ -339,7 +339,7 @@ pnpm db:generate
 # 创建/应用迁移
 pnpm db:migrate --name <migration_name>
 
-# 种子数据（测试用户 test@jobtracks.com / 123456）
+# 种子数据（本地开发测试账号，仅 development 环境创建）
 pnpm db:seed
 
 # 可视化管理
@@ -559,7 +559,7 @@ AUTH_SECRET="replace-with-your-secret-key"
 AUTH_URL="http://localhost:3000"
 ENCRYPTION_KEY="replace-with-your-32-byte-hex-key"
 
-# EnvVault 加密密钥（AES-256-GCM，至少 16 字符）
+# EnvVault 加密密钥（AES-256-GCM，至少 16 字符；生产环境请用 `openssl rand -hex 32` 重新生成）
 ENVAULT_ENCRYPTION_KEY="replace-with-your-own-random-key"
 ```
 
