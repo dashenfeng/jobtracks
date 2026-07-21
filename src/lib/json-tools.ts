@@ -173,7 +173,6 @@ export function evalJsonPath(path: string, data: unknown): unknown[] {
     | { type: 'recursive-all' };
 
   const segments: Segment[] = [];
-  let i = 1; // 跳过 $
   const body = path.slice(1);
 
   // 简化解析：逐字符扫描

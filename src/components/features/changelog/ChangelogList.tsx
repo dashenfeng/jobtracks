@@ -200,7 +200,7 @@ export function ChangelogList() {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">暂无 Changelog</p>
                 <p className="text-xs text-muted-foreground">
-                  点击右上角"新建"开始记录你的版本变更
+                  点击右上角「新建」开始记录你的版本变更
                 </p>
               </div>
             </div>
