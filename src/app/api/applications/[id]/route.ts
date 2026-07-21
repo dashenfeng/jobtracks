@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth/full-config';
 import { checkCsrf } from '@/lib/auth/csrf';
 import { prisma } from '@/lib/db';
 import { applicationSchema } from '@/lib/validations/application';
+import { notifyApplicationStatusChanged } from '@/lib/notifications/service';
 
 /** 获取单个投递详情 */
 export async function GET(
@@ -70,6 +71,16 @@ export async function PATCH(
       notes: data.notes || null,
     },
   });
+
+  // 投递状态变更通知（异步触发，不阻塞响应；失败不影响更新结果）
+  if (data.status && existing.status !== data.status) {
+    notifyApplicationStatusChanged(
+      session.user.id,
+      { id: application.id, companyName: application.companyName, jobTitle: application.jobTitle },
+      existing.status,
+      data.status,
+    ).catch((e) => console.error('[notifications] status change notify failed:', e));
+  }
 
   return NextResponse.json(application);
 }

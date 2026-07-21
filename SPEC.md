@@ -1,9 +1,9 @@
 # 职迹 - 个人求职工作台 技术规格说明书
 
-> **文档版本**：v3.4.0  
-> **最后更新**：2026-07-14  
+> **文档版本**：v3.5.0  
+> **最后更新**：2026-07-19  
 > **技术栈锁定版本**  
-> **本次更新**：Changelog 模块完成（版本管理 + 变更分类 + 截图归档 + 按类型分组展示）
+> **本次更新**：AI Agent 完成（只读 9 工具 + DeepSeek 流式）；审计日志 CSV 导出 + targetType 筛选；移动端 Sidebar 抽屉；新增 CI/CD 章节
 
 ---
 
@@ -28,7 +28,8 @@
 | P1 | JSON 工具 | ✅ 完成 | 格式化/压缩 + 命名转换（保护 key + 命中反馈）+ Diff + JSONPath |
 | P2 | Snapshot Diff | ✅ 完成 | 快照 CRUD + 多选对比 + 行级 LCS / JSON 深度 diff 智能切换 |
 | P2 | Changelog | ✅ 完成 | 版本管理 + 变更分类（NEW/FIX/IMPROVED/BREAKING）+ 截图归档 + 按类型分组展示 |
-| P2 | AI Agent | ⏳ Phase 2 | 自然语言交互 |
+| P2 | AI Agent | ✅ 完成 | 只读 9 工具（投递/面试/错题/快照/Changelog）+ DeepSeek + AI SDK v7 流式 |
+| P2 | 通知系统 | ⏳ 待开发 | 面试提醒 + 状态变更 + 站内通知中心 |
 
 ### 1.3 技术栈（已锁定 - 2026年7月最新）
 
@@ -1041,25 +1042,81 @@ npx prisma migrate deploy
 - **JSON 工具**（✅ 已完成）：格式化/压缩、命名风格转换（含保护 key + 命中反馈）、JSON 对比、JSONPath 提取
 - **Snapshot Diff**（✅ 已完成）：JSON/XML/文本快照保存与可视化差异对比（行级 LCS diff + JSON 深度 diff 自动切换）
 - **Changelog**（✅ 已完成）：版本管理 + 变更分类（NEW/FIX/IMPROVED/BREAKING）+ 截图归档 + 按类型分组展示 + 事务化 changes 整体替换
-- **AI Agent**（⏳ 待开发）：Vercel AI SDK + DeepSeek API，自然语言交互
+- **AI Agent**（✅ 已完成）：只读 9 工具（投递/面试/错题/快照/Changelog）+ DeepSeek + AI SDK v7 streamText 流式 + auth/CSRF/限流 + useChat 前端
+- **审计日志导出**（✅ 已完成）：CSV 导出（RFC 4180 + UTF-8 BOM）+ targetType 筛选 + 按 targetType 智能提取键名/版本
+- **移动端 Sidebar 抽屉**（✅ 已完成）：汉堡菜单 + Sheet 左滑出 + 路由切换自动关闭 + SidebarContent 桌面/移动复用
 
-### 17.2 移动端 Sidebar 抽屉
+### 17.2 通知系统（⏳ 待开发）
 
-当前 Sidebar 在移动端固定占位，需改为汉堡菜单 + 抽屉式展开。
+- 站内通知中心（铃铛 + 未读数 + 列表 + 标记已读）
+- 面试临近提醒（自动扫描面试日程，提前 N 小时/天生成通知）
+- 投递状态变更通知（CRUD 触发）
+- 邮件通知（可选，Phase 3）
 
-### 17.3 通知系统
+### 17.3 生产化加固
 
-- 站内通知（面试提醒）
-- 邮件通知（可选）
+- 限流从内存换 Upstash Redis（@upstash/redis + @upstash/ratelimit）
+- EnvVault 密钥轮换定时任务（Vercel Cron + 轮换策略 + 提前通知）
 
-### 17.4 生产化加固
+### 17.4 CI/CD
 
-- 限流从内存换 Upstash Redis
-- 审计日志导出/检索
-- EnvVault 密钥轮换定时任务
+详见第十八章。
 
 ---
 
-*Spec Version: 3.4.0*  
+## 十八、CI/CD（GitHub Actions）
+
+### 18.1 目标
+
+- 每次推送到 `main` / 创建 PR：自动跑 lint + tsc + 单元测试 + 构建
+- `main` 分支构建通过后自动部署到 Vercel（Vercel Git Integration，不需要手动 CI 部署脚本）
+- PR 检查不通过时阻塞合并（分支保护规则）
+
+### 18.2 工作流设计
+
+**`.github/workflows/ci.yml`** — 主 CI 工作流
+
+触发：`push`（main 分支）+ `pull_request`（目标 main）
+
+Jobs：
+
+1. **lint-and-typecheck**
+   - Node 22 + pnpm
+   - `pnpm install --frozen-lockfile`
+   - `pnpm exec eslint .`
+   - `pnpm exec tsc --noEmit`
+
+2. **unit-test**
+   - 依赖 lint-and-typecheck
+   - `pnpm test`（Vitest，仅跑 `*.test.ts`，不跑 E2E）
+   - 上传 coverage 报告
+
+3. **build**
+   - 依赖 unit-test
+   - `pnpm build`（Next.js 16 + Turbopack）
+   - 校验 `.next/` 产物存在
+
+### 18.3 缓存策略
+
+- pnpm store 缓存（`actions/setup-node@v4` + `pnpm/action-setup@v4`）
+- Next.js build cache（`.next/cache`，`actions/cache@v4`）
+
+### 18.4 环境变量
+
+CI 环境只跑 lint/tsc/test/build，**不需要真实 DB/API 密钥**：
+- `DATABASE_URL` 用占位符（`postgresql://placeholder`）
+- `AUTH_SECRET` / `ENCRYPTION_KEY` / `ENVAULT_ENCRYPTION_KEY` / `DEEPSEEK_API_KEY` 都用占位符
+- 单元测试 mock 掉 Prisma，不连真实数据库
+
+### 18.5 分支保护（GitHub Settings）
+
+`main` 分支：
+- Require pull request before merging
+- Require status checks: `lint-and-typecheck`、`unit-test`、`build`
+- Require branches up-to-date before merging
+
+---
+
+*Spec Version: 3.5.0*  
 *Locked: Next.js 16.2.9 + React 19.2.4 + Prisma 7.8 + Tailwind v4 + shadcn/ui + Recharts 3.9.1 + Vitest 4.1.9*  
-*Last Updated: 2026-07-14*
+*Last Updated: 2026-07-19*

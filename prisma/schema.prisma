@@ -26,6 +26,7 @@ model User {
   snapshots     Snapshot[]
   changelogs    Changelog[]
   auditLogs     AuditLog[]
+  notifications Notification[]
   accounts      Account[]
   sessions      Session[]
 }
@@ -227,6 +228,28 @@ model Change {
 
   changelogId   String
   changelog     Changelog  @relation(fields: [changelogId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  content   String           @db.Text
+  link      String?
+  read      Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+  @@index([userId, createdAt])
+}
+
+enum NotificationType {
+  INTERVIEW_REMINDER
+  STATUS_CHANGED
 }
 
 enum Role {

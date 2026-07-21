@@ -2,11 +2,12 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Bell, Settings, LogOut } from 'lucide-react';
+import { Search, Settings, LogOut } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
 import { everyNavItems, subPageLabels } from '@/components/layout/nav-items';
 import { MobileNav } from '@/components/layout/MobileNav';
+import { NotificationBell } from '@/components/features/notifications/NotificationBell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,10 +119,7 @@ export function Header() {
         </div>
 
         {/* Notifications */}
-        <button className="relative flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-          <Bell size={20} />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border-2 border-background bg-destructive" />
-        </button>
+        <NotificationBell />
 
         {/* Avatar */}
         <DropdownMenu>
