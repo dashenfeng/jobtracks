@@ -108,9 +108,9 @@ export function Header() {
         </nav>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Search */}
-        <div className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent">
+      <div className="flex items-center gap-2 sm:gap-4">
+        {/* Search（仅桌面端显示，移动端通过侧边栏入口访问） */}
+        <div className="hidden cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent md:flex">
           <Search size={16} />
           <span>搜索...</span>
           <kbd className="ml-4 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-xs text-muted-foreground">

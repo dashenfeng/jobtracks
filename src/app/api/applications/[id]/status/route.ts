@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth/full-config';
 import { checkCsrf } from '@/lib/auth/csrf';
 import { prisma } from '@/lib/db';
+import { notifyApplicationStatusChanged } from '@/lib/notifications/service';
 import { statusUpdateSchema } from '@/lib/validations/application';
 
 /**
@@ -32,7 +33,7 @@ export async function PATCH(
   // 确认记录存在且属于当前用户
   const existing = await prisma.application.findFirst({
     where: { id, userId: session.user.id },
-    select: { id: true },
+    select: { id: true, status: true, companyName: true, jobTitle: true },
   });
   if (!existing) {
     return NextResponse.json({ error: '记录不存在' }, { status: 404 });
@@ -43,6 +44,16 @@ export async function PATCH(
     data: { status: parsed.data.status },
     select: { id: true, status: true, updatedAt: true },
   });
+
+  // 状态变更通知（异步触发，不阻塞响应；失败不影响更新结果）
+  if (existing.status !== parsed.data.status) {
+    notifyApplicationStatusChanged(
+      session.user.id,
+      { id: existing.id, companyName: existing.companyName, jobTitle: existing.jobTitle },
+      existing.status,
+      parsed.data.status,
+    ).catch((e) => console.error('[notifications] status change notify failed:', e));
+  }
 
   return NextResponse.json(application);
 }

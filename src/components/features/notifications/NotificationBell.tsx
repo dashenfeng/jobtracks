@@ -72,7 +72,8 @@ export function NotificationBell() {
     }
   }, []);
 
-  // 轮询未读数（不打开时也跑，30 秒一次）
+  // 轮询未读数（不打开时也跑，10 秒一次）
+  // 关键：只有 unreadCount 真正变化时才更新 state，避免无谓重渲染把 Popover 顶关
   useEffect(() => {
     let cancelled = false;
     async function poll() {
@@ -80,12 +81,14 @@ export function NotificationBell() {
         const res = await fetch('/api/notifications?pageSize=1');
         if (!res.ok) return;
         const json: ListResponse = await res.json();
-        if (!cancelled) {
-          setData((prev) => {
-            if (prev) return { ...prev, unreadCount: json.unreadCount };
-            return { ...json, items: [] };
-          });
-        }
+        if (cancelled) return;
+        setData((prev) => {
+          // 未读数没变 → 不创建新对象，跳过重渲染
+          if (prev && prev.unreadCount === json.unreadCount) return prev;
+          // 已打开列表时不覆盖 items，避免把已加载的列表冲掉
+          if (prev) return { ...prev, unreadCount: json.unreadCount };
+          return { ...json, items: [] };
+        });
       } catch {
         // 静默
       }

@@ -92,8 +92,10 @@ export async function POST(request: Request) {
   // DeepSeek 兼容 OpenAI 的 Chat Completions API（/v1/chat/completions），
   // 但不支持 Responses API（/v1/responses）。@ai-sdk/openai v4 默认走 Responses API，
   // 所以必须用 `.chat()` 显式指定 Chat Completions，否则会 404。
+  // 模型名：DeepSeek 当前仅支持 deepseek-v4-pro / deepseek-v4-flash（旧名 deepseek-chat 已废弃）
+  const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
   const result = streamText({
-    model: deepseek.chat('deepseek-chat'),
+    model: deepseek.chat(model),
     instructions: SYSTEM_PROMPT,
     messages: await convertToModelMessages(messages),
     tools: agentTools,
