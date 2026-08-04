@@ -1,8 +1,10 @@
 # 职迹项目部署总结 & 面试备考
 
 > 部署时间：2026-07-26
+> 最后更新：2026-08-04（所有生产环境问题已修复）
 > 部署目标：将 Next.js 16 + Prisma 7 + NextAuth v5 项目上线公网，供朋友访问
 > 最终架构：Vercel（应用）+ Prisma Postgres（数据库）+ Cloudflare（CDN/DNS）+ 阿里云（域名）
+> 当前状态：✅ 全部问题已修复，所有修复已合入 main 并推送，Vercel 自动部署中
 
 ---
 
@@ -130,17 +132,36 @@
 
 ---
 
-### 坑 4：薪资显示异常 `30-50K·16薪` → `**-**K·**薪`
+### 坑 4：薪资显示异常 `30-50K·16薪` → `**-**K·**薪` ✅ 已修复
 
-**现象**：数字被替换成 `*`。
+**现象**：数字被替换成 `*`，看起来像渲染 bug。
 
-**原因**：待定位（推测是数字脱敏或 CSS 字体问题）。
+**原因**：`SalaryCell` 组件在 `visible=false` 时会调 `maskSalary` 把所有数字替换成 `*`，但 UI 上没有任何"已隐藏"的提示，用户（包括我自己）第一眼都以为是渲染错误。
 
-**解决**：未修复。
+**解决**：在掩码状态下加 `EyeOff` 图标和 tooltip，文字色弱化区分明文/掩码。
+
+```tsx
+import { EyeOff } from 'lucide-react';
+
+return (
+  <span
+    className="inline-flex items-center gap-1 text-sm text-muted-foreground/70 tabular-nums"
+    title="薪资已隐藏，点击切换显示"
+  >
+    <EyeOff className="size-3" aria-hidden />
+    <span>{maskSalary(value)}</span>
+  </span>
+);
+```
+
+**知识点**：
+- **掩码 ≠ Bug**：脱敏显示必须有视觉提示，否则用户会误以为渲染错误
+- 用 `text-muted-foreground/70` 弱化掩码文字色，明文用 `text-foreground`，形成视觉对比
+- `tabular-nums` 让数字等宽，切换明文/掩码时不会抖动
 
 ---
 
-### 坑 5：通知系统未触发
+### 坑 5：通知系统未触发 ✅ 已修复
 
 **现象**：投递状态变更后，通知列表里没有 `STATUS_CHANGED` 记录。
 
@@ -170,7 +191,7 @@ if (existing.status !== parsed.data.status) {
 
 ---
 
-### 坑 6：DeepSeek API 模型名变更
+### 坑 6：DeepSeek API 模型名变更 ✅ 已修复
 
 **现象**：AI Agent 调用失败，错误：`The supported API model names are deepseek-v4-pro or deepseek-v4-flash, but you passed deepseek-chat`
 
@@ -193,7 +214,7 @@ const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
 
 ---
 
-### 坑 7：移动端 Header 拥挤
+### 坑 7：移动端 Header 拥挤 ✅ 已修复
 
 **现象**：iPhone 14 Pro 视口下 Header 元素挤在一起。
 
@@ -214,7 +235,7 @@ const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
 
 ---
 
-### 坑 8：EnvVault 移动端水平溢出
+### 坑 8：EnvVault 移动端水平溢出 ✅ 已修复
 
 **现象**：4 个操作按钮在移动端撑爆容器，水平滚动条 21px。
 
@@ -287,6 +308,45 @@ AUTH_URL = https://app.jobtracks.xyz   (仅 Production)
 - `AUTH_TRUST_HOST=true`：信任请求里的 Host 头（多域名访问必备）
 - `AUTH_URL`：显式指定回跳域名（覆盖自动检测）
 - **Cookie 域名陷阱**：旧 cookie 是 vercel.app 域名下的，新域名 app.jobtracks.xyz 不共享
+
+---
+
+### 坑 11：NotificationBell Popover 打开后立即关闭 ✅ 已修复
+
+**现象**：点击通知铃铛，Popover 闪一下就关闭，根本来不及点通知里的项。Sheet（移动端）没问题，只有桌面 Popover 有问题。
+
+**原因**：轮询逻辑 + 受控 Popover 的冲突。
+
+原始实现里，每 10 秒轮询 `/api/notifications?pageSize=1` 拉未读数，无论 unreadCount 是否变化都会 `setData(json)` 创建一个**新对象**。React 看到 state 引用变了就触发重渲染，把正打开的 Popover 顶关。
+
+```typescript
+// 原始的有问题代码
+const json: ListResponse = await res.json();
+setData(json);  // 每次都创建新对象 → 重渲染 → Popover 被顶关
+```
+
+**解决**：用 `setData(prev => ...)` 的函数式更新，**只有 unreadCount 真正变化时才创建新对象**，否则返回 prev（引用不变，React 跳过重渲染）。
+
+```typescript
+setData((prev) => {
+  // 未读数没变 → 不创建新对象，跳过重渲染
+  if (prev && prev.unreadCount === json.unreadCount) return prev;
+  // 已打开列表时不覆盖 items，避免把已加载的列表冲掉
+  if (prev) return { ...prev, unreadCount: json.unreadCount };
+  return { ...json, items: [] };
+});
+```
+
+**关键点**：
+- 即使 fetch 返回的 json 数据"看起来一样"，引用也是新的，React 会重渲染
+- 必须用 `setData(prev => prev.unreadCount === json.unreadCount ? prev : ...)` 显式判断
+- 还要处理"列表已加载时不被覆盖"：`if (prev) return { ...prev, unreadCount }` 保留 items
+
+**知识点**：
+- **React 引用相等性**：`setState(新对象)` 总会触发重渲染，即使内容相同
+- **函数式更新**：`setState(prev => prev)` 返回 prev 时，React 会跳过重渲染（bailout）
+- **受控 Popover 的脆弱性**：`open` 状态被父组件 state 控制，父组件任何重渲染都可能影响 Popover
+- 轮询组件设计原则：**只在数据真正变化时更新 state**，否则无谓重渲染
 
 ---
 
@@ -586,10 +646,14 @@ await playwright_resize({ width: 1280, height: 800 }); // 桌面
 
 ---
 
-## 六、待办（未完成）
+## 六、待办（全部完成 ✅）
 
-- [ ] 修复 NotificationBell Popover 无法打开（受控状态 + loadList 副作用）
-- [ ] 修复薪资显示异常（30-50K·16薪 → **-**K·**薪）
+- [x] ✅ 修复 NotificationBell Popover 无法打开（详见坑 11）
+- [x] ✅ 修复薪资显示异常（详见坑 4）
+- [x] ✅ 修复移动端 Header 拥挤（详见坑 7）
+- [x] ✅ 修复 EnvVault 移动端溢出（详见坑 8）
+- [x] ✅ 修复 AI Agent DeepSeek 模型名变更（详见坑 6）
+- [x] ✅ 修复通知系统未触发（详见坑 5）
 
 ---
 
