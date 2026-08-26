@@ -1,9 +1,9 @@
 # 职迹 - 个人求职工作台 技术规格说明书
 
-> **文档版本**：v3.6.0  
+> **文档版本**：v3.6.1  
 > **最后更新**：2026-08-04  
 > **技术栈锁定版本**  
-> **本次更新**：通知系统完成（NotificationBell + 面试临近懒扫描 + 状态变更触发）；所有 P0/P1/P2 模块全部完成；测试章节刷新
+> **本次更新**：登录 authorize 提取为独立模块并补齐 10 个测试用例（覆盖 schema/限流/bcrypt/OAuth password=null 等所有路径）；测试总数 170 → 180
 
 ---
 
@@ -936,19 +936,20 @@ _resetRateLimitForTest(): void  // 测试隔离用
 
 注册时 Zod 校验：最少 8 位，必须包含字母 + 数字。
 
-### 13.4 API 测试（Vitest，✅ 170 个用例全绿）
+### 13.4 API 测试（Vitest，✅ 180 个用例全绿）
 
 ```bash
 pnpm add -D vitest@4.1.9 @vitest/coverage-v8
 ```
 
-#### 测试文件清单（17 个文件）
+#### 测试文件清单（18 个文件）
 
 | 文件 | 用例数 | 覆盖范围 |
 |------|--------|----------|
 | `lib/auth/__tests__/csrf.test.ts` | 6 | Origin 缺失/不匹配/合法 |
 | `lib/auth/__tests__/rate-limit.test.ts` | 9 | 计数/窗口重置/多 key 隔离 |
 | `lib/auth/__tests__/verify-token.test.ts` | 10 | 签发/校验/篡改/过期 |
+| `lib/auth/__tests__/authorize.test.ts` | 10 | 登录校验：schema/限流/用户不存在/OAuth password=null/bcrypt 失败/成功登录/密码策略不一致 |
 | `lib/crypto/__tests__/aes.test.ts` | 11 | 加解密/IV 唯一性/错误密钥 |
 | `lib/validations/__tests__/envvault.test.ts` | 14 | Zod schema 各种输入 |
 | `lib/__tests__/utils.test.ts` | 10 | cn/formatDate/maskSalary |
