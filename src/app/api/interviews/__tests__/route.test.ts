@@ -112,7 +112,7 @@ describe('GET /api/interviews', () => {
     expect(body).toHaveLength(1);
     expect(mockedInterviewFindMany).toHaveBeenCalledOnce();
     // 验证 where 含 userId
-    const args = mockedInterviewFindMany.mock.calls[0][0];
+    const args = mockedInterviewFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ userId: 'u1' });
     expect(args.orderBy).toEqual({ scheduledAt: 'desc' });
   });
@@ -129,7 +129,7 @@ describe('GET /api/interviews', () => {
 
     await GET(makeGetRequest('?status=SCHEDULED'));
 
-    const args = mockedInterviewFindMany.mock.calls[0][0];
+    const args = mockedInterviewFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ userId: 'u1', status: 'SCHEDULED' });
   });
 
@@ -139,7 +139,7 @@ describe('GET /api/interviews', () => {
 
     await GET(makeGetRequest('?from=2026-01-01&to=2026-12-31'));
 
-    const args = mockedInterviewFindMany.mock.calls[0][0];
+    const args = mockedInterviewFindMany.mock.calls[0]![0]! as any;
     expect(args.where.scheduledAt).toBeDefined();
     expect(args.where.scheduledAt.gte).toBeInstanceOf(Date);
     expect(args.where.scheduledAt.lte).toBeInstanceOf(Date);
@@ -181,7 +181,7 @@ describe('GET /api/interviews/[id]', () => {
     const body = await res.json();
     expect(body.id).toBe('i1');
     // 验证查询时按 userId 隔离
-    const args = mockedInterviewFindFirst.mock.calls[0][0];
+    const args = mockedInterviewFindFirst.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ id: 'i1', userId: 'u1' });
   });
 });
@@ -340,7 +340,7 @@ describe('GET /api/interviews/[id]/questions', () => {
     const body = await res.json();
     expect(body).toHaveLength(1);
     // 验证按 createdAt asc
-    const args = mockedQuestionFindMany.mock.calls[0][0];
+    const args = mockedQuestionFindMany.mock.calls[0]![0]! as any;
     expect(args.orderBy).toEqual({ createdAt: 'asc' });
   });
 });
@@ -423,7 +423,7 @@ describe('POST /api/interviews/[id]/questions', () => {
     const res = await postQuestion(req, makeContext('i1'));
     expect(res.status).toBe(200);
     // 验证 create 时带 interviewId 和 userId
-    const args = mockedQuestionCreate.mock.calls[0][0];
+    const args = mockedQuestionCreate.mock.calls[0]![0]! as any;
     expect(args.data).toMatchObject({
       interviewId: 'i1',
       userId: 'u1',
@@ -458,7 +458,7 @@ describe('GET /api/review (错题本)', () => {
       }),
     );
 
-    const args = mockedQuestionFindMany.mock.calls[0][0];
+    const args = mockedQuestionFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({
       userId: 'u1',
       performance: { in: ['POOR', 'OKAY'] },
@@ -476,7 +476,7 @@ describe('GET /api/review (错题本)', () => {
       }),
     );
 
-    const args = mockedQuestionFindMany.mock.calls[0][0];
+    const args = mockedQuestionFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ userId: 'u1' });
     expect(args.where.performance).toBeUndefined();
   });
@@ -503,7 +503,7 @@ describe('GET /api/review (错题本)', () => {
       }),
     );
 
-    const args = mockedQuestionFindMany.mock.calls[0][0];
+    const args = mockedQuestionFindMany.mock.calls[0]![0]! as any;
     expect(args.where.difficulty).toBe('HARD');
   });
 });

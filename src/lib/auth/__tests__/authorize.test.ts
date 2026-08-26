@@ -78,9 +78,9 @@ describe('authorizeCredentials (登录校验)', () => {
     expect(result).toBeNull();
     expect(mockedFindUnique).not.toHaveBeenCalled();
     // 验证限流 key 用 email 维度
-    expect(mockedRateLimit.mock.calls[0][0]).toBe('login:a@b.com');
-    expect(mockedRateLimit.mock.calls[0][1]).toBe(5);
-    expect(mockedRateLimit.mock.calls[0][2]).toBe(60_000);
+    expect(mockedRateLimit.mock.calls[0]![0]! as any).toBe('login:a@b.com');
+    expect(mockedRateLimit.mock.calls[0]![1]).toBe(5);
+    expect(mockedRateLimit.mock.calls[0]![2]).toBe(60_000);
   });
 
   it('用户不存在 → null（不调 bcrypt）', async () => {

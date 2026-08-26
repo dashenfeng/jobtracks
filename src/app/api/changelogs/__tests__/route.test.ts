@@ -90,7 +90,7 @@ describe('GET /api/changelogs', () => {
 
     await GET(makeGetRequest('?type=NEW'));
 
-    const args = mockedFindMany.mock.calls[0][0];
+    const args = mockedFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({
       userId: 'u1',
       changes: { some: { type: 'NEW' } },
@@ -103,7 +103,7 @@ describe('GET /api/changelogs', () => {
 
     await GET(makeGetRequest('?q=notification'));
 
-    const args = mockedFindMany.mock.calls[0][0];
+    const args = mockedFindMany.mock.calls[0]![0]! as any;
     expect(args.where.OR).toBeDefined();
     expect(args.where.OR).toHaveLength(2);
   });
@@ -181,7 +181,7 @@ describe('POST /api/changelogs', () => {
     expect(res.status).toBe(201);
     // 验证写审计日志
     expect(mockedAuditCreate).toHaveBeenCalledOnce();
-    const auditArgs = mockedAuditCreate.mock.calls[0][0];
+    const auditArgs = mockedAuditCreate.mock.calls[0]![0]! as any;
     expect(auditArgs.data).toMatchObject({
       action: 'CREATE',
       targetType: 'Changelog',

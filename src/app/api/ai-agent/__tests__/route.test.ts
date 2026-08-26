@@ -43,6 +43,7 @@ import { checkCsrf } from '@/lib/auth/csrf';
 import { rateLimit, _resetRateLimitForTest } from '@/lib/auth/rate-limit';
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { NextResponse } from 'next/server';
 
 const mockedAuth = vi.mocked(auth);
 const mockedCheckCsrf = vi.mocked(checkCsrf);
@@ -88,7 +89,7 @@ describe('POST /api/ai-agent', () => {
 
   it('CSRF 失败 → 403', async () => {
     mockedCheckCsrf.mockReturnValueOnce(
-      new Response('Forbidden', { status: 403 }),
+      new NextResponse('Forbidden', { status: 403 }) as never,
     );
     const res = await POST(makeRequest(validBody));
     expect(res.status).toBe(403);
@@ -152,7 +153,7 @@ describe('POST /api/ai-agent', () => {
     expect(res.status).toBe(200);
     expect(mockedStreamText).toHaveBeenCalledOnce();
     // 验证 streamText 调用参数
-    const callArgs = mockedStreamText.mock.calls[0][0];
+    const callArgs = mockedStreamText.mock.calls[0]![0]! as any;
     expect(callArgs.tools).toBeDefined();
     expect(callArgs.stopWhen).toBeDefined();
     expect(callArgs.toolsContext).toMatchObject({
@@ -169,7 +170,7 @@ describe('POST /api/ai-agent', () => {
 
     await POST(makeRequest(validBody));
 
-    const rateLimitKey = mockedRateLimit.mock.calls[0][0];
+    const rateLimitKey = mockedRateLimit.mock.calls[0]![0]! as any;
     expect(rateLimitKey).toBe('ai-agent:user-abc');
   });
 });

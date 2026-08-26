@@ -54,6 +54,7 @@ import { checkVerifyToken } from '@/lib/auth/verify-token';
 import { decrypt } from '@/lib/crypto/aes';
 import { prisma } from '@/lib/db';
 import { _resetRateLimitForTest } from '@/lib/auth/rate-limit';
+import { NextResponse } from 'next/server';
 
 const mockedAuth = vi.mocked(auth);
 const mockedCheckCsrf = vi.mocked(checkCsrf);
@@ -95,7 +96,7 @@ describe('POST /api/envvault/[id]/reveal', () => {
 
   it('CSRF 失败 → 403', async () => {
     mockedCheckCsrf.mockReturnValueOnce(
-      new Response('Forbidden', { status: 403 }),
+      new NextResponse('Forbidden', { status: 403 }) as never,
     );
     const res = await POST(makeRequest(), makeContext('v1'));
     expect(res.status).toBe(403);
@@ -176,13 +177,13 @@ describe('POST /api/envvault/[id]/reveal', () => {
     const body = await res.json();
     expect(body.value).toBe('sk-real-value');
     // 验证 viewCount 累计
-    const updateArgs = mockedUpdate.mock.calls[0][0];
+    const updateArgs = mockedUpdate.mock.calls[0]![0]! as any;
     expect(updateArgs.data).toMatchObject({
       viewCount: { increment: 1 },
       lastViewedAt: expect.any(Date),
     });
     // 验证审计日志
-    const auditArgs = mockedAuditCreate.mock.calls[0][0];
+    const auditArgs = mockedAuditCreate.mock.calls[0]![0]! as any;
     expect(auditArgs.data).toMatchObject({
       action: 'VIEW',
       targetType: 'EnvVault',

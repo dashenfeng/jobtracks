@@ -125,7 +125,7 @@ describe('GET /api/notifications', () => {
     await GET(makeRequest('?unreadOnly=true'));
 
     // 验证 findMany 的 where 含 read: false
-    const findManyArgs = mockedFindMany.mock.calls[0][0];
+    const findManyArgs = mockedFindMany.mock.calls[0]![0]! as any;
     expect(findManyArgs.where).toMatchObject({
       userId: 'u1',
       read: false,
@@ -153,7 +153,7 @@ describe('PATCH /api/notifications', () => {
     const body = await res.json();
     expect(body.updated).toBe(3);
     // 验证只更新未读
-    const args = mockedUpdateMany.mock.calls[0][0];
+    const args = mockedUpdateMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ userId: 'u1', read: false });
     expect(args.data).toMatchObject({ read: true });
   });

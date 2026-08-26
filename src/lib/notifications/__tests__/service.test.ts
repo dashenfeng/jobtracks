@@ -102,9 +102,11 @@ describe('scanInterviewReminders', () => {
     expect(result).toBe(1);
     expect(mockedNotificationCreateMany).toHaveBeenCalledOnce();
     // 验证 metadata 含 interviewId 用于去重
-    const callArgs = mockedNotificationCreateMany.mock.calls[0][0];
-    expect(callArgs.data[0].metadata).toMatchObject({ interviewId: 'i1' });
-    expect(callArgs.data[0].type).toBe('INTERVIEW_REMINDER');
+    const callArgs = mockedNotificationCreateMany.mock.calls[0]![0]! as {
+      data: { metadata: unknown; type: string }[];
+    };
+    expect(callArgs.data[0]!.metadata).toMatchObject({ interviewId: 'i1' });
+    expect(callArgs.data[0]!.type).toBe('INTERVIEW_REMINDER');
   });
 
   it('面试扫描失败时抛出（让上层 try/catch 兜底）', async () => {
@@ -140,7 +142,7 @@ describe('notifyApplicationStatusChanged', () => {
     );
 
     expect(mockedNotificationCreate).toHaveBeenCalledOnce();
-    const callArgs = mockedNotificationCreate.mock.calls[0][0];
+    const callArgs = mockedNotificationCreate.mock.calls[0]![0]!;
     expect(callArgs.data).toMatchObject({
       userId: 'u1',
       type: 'STATUS_CHANGED',
@@ -169,7 +171,7 @@ describe('notifyApplicationStatusChanged', () => {
       'REJECTED',
     );
 
-    const callArgs = mockedNotificationCreate.mock.calls[0][0];
+    const callArgs = mockedNotificationCreate.mock.calls[0]![0]!;
     expect(callArgs.data.content).toContain('拒绝');
   });
 });

@@ -55,7 +55,7 @@ describe('PATCH /api/notifications/[id]', () => {
     const body = await res.json();
     expect(body.updated).toBe(1);
     // 验证 userId 隔离
-    const args = mockedUpdateMany.mock.calls[0][0];
+    const args = mockedUpdateMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ id: 'n1', userId: 'u1' });
     expect(args.data).toMatchObject({ read: true });
   });

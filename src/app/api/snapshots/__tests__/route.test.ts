@@ -88,7 +88,7 @@ describe('GET /api/snapshots', () => {
 
     await GET(makeGetRequest('?project=auth'));
 
-    const args = mockedFindMany.mock.calls[0][0];
+    const args = mockedFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ userId: 'u1', project: 'auth' });
   });
 
@@ -98,7 +98,7 @@ describe('GET /api/snapshots', () => {
 
     await GET(makeGetRequest('?contentType=json'));
 
-    const args = mockedFindMany.mock.calls[0][0];
+    const args = mockedFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ userId: 'u1', contentType: 'json' });
   });
 
@@ -108,7 +108,7 @@ describe('GET /api/snapshots', () => {
 
     await GET(makeGetRequest('?isBaseline=true'));
 
-    const args = mockedFindMany.mock.calls[0][0];
+    const args = mockedFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ userId: 'u1', isBaseline: true });
   });
 
@@ -118,7 +118,7 @@ describe('GET /api/snapshots', () => {
 
     await GET(makeGetRequest('?isBaseline=false'));
 
-    const args = mockedFindMany.mock.calls[0][0];
+    const args = mockedFindMany.mock.calls[0]![0]! as any;
     expect(args.where).toMatchObject({ userId: 'u1', isBaseline: false });
   });
 
@@ -128,7 +128,7 @@ describe('GET /api/snapshots', () => {
 
     await GET(makeGetRequest('?q=login'));
 
-    const args = mockedFindMany.mock.calls[0][0];
+    const args = mockedFindMany.mock.calls[0]![0]! as any;
     expect(args.where.OR).toBeDefined();
     expect(args.where.OR).toHaveLength(3); // name / remarks / tags.has
   });
@@ -200,11 +200,11 @@ describe('POST /api/snapshots', () => {
     const res = await POST(makePostRequest(validSnapshot));
     expect(res.status).toBe(201);
     // 验证 contentLength 自动计算
-    const createArgs = mockedCreate.mock.calls[0][0];
+    const createArgs = mockedCreate.mock.calls[0]![0]! as any;
     expect(createArgs.data.contentLength).toBe(validSnapshot.content.length);
     // 验证审计日志
     expect(mockedAuditCreate).toHaveBeenCalledOnce();
-    const auditArgs = mockedAuditCreate.mock.calls[0][0];
+    const auditArgs = mockedAuditCreate.mock.calls[0]![0]! as any;
     expect(auditArgs.data).toMatchObject({
       action: 'CREATE',
       targetType: 'Snapshot',
