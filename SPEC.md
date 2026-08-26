@@ -1,9 +1,9 @@
 # 职迹 - 个人求职工作台 技术规格说明书
 
-> **文档版本**：v3.6.1  
+> **文档版本**：v3.6.2  
 > **最后更新**：2026-08-04  
 > **技术栈锁定版本**  
-> **本次更新**：登录 authorize 提取为独立模块并补齐 10 个测试用例（覆盖 schema/限流/bcrypt/OAuth password=null 等所有路径）；测试总数 170 → 180
+> **本次更新**：登录校验策略与注册统一（min(8) + 字母 + 数字），消除"兼容历史用户"的误导注释；测试总数 180 → 181
 
 ---
 
@@ -934,9 +934,9 @@ _resetRateLimitForTest(): void  // 测试隔离用
 
 #### 密码强度
 
-注册时 Zod 校验：最少 8 位，必须包含字母 + 数字。
+注册和登录均用同一 Zod schema 校验：最少 8 位，必须包含字母 + 数字。项目从零开发，DB 里所有 hash 都满足此要求，登录用同款校验让 6-7 位无效请求在 schema 阶段短路，不查库。
 
-### 13.4 API 测试（Vitest，✅ 180 个用例全绿）
+### 13.4 API 测试（Vitest，✅ 181 个用例全绿）
 
 ```bash
 pnpm add -D vitest@4.1.9 @vitest/coverage-v8
@@ -949,7 +949,7 @@ pnpm add -D vitest@4.1.9 @vitest/coverage-v8
 | `lib/auth/__tests__/csrf.test.ts` | 6 | Origin 缺失/不匹配/合法 |
 | `lib/auth/__tests__/rate-limit.test.ts` | 9 | 计数/窗口重置/多 key 隔离 |
 | `lib/auth/__tests__/verify-token.test.ts` | 10 | 签发/校验/篡改/过期 |
-| `lib/auth/__tests__/authorize.test.ts` | 10 | 登录校验：schema/限流/用户不存在/OAuth password=null/bcrypt 失败/成功登录/密码策略不一致 |
+| `lib/auth/__tests__/authorize.test.ts` | 11 | 登录校验：schema（8 位 + 字母 + 数字）/限流/用户不存在/OAuth password=null/bcrypt 失败/成功登录 |
 | `lib/crypto/__tests__/aes.test.ts` | 11 | 加解密/IV 唯一性/错误密钥 |
 | `lib/validations/__tests__/envvault.test.ts` | 14 | Zod schema 各种输入 |
 | `lib/__tests__/utils.test.ts` | 10 | cn/formatDate/maskSalary |

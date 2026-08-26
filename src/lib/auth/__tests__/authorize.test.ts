@@ -37,14 +37,28 @@ describe('authorizeCredentials (登录校验)', () => {
   });
 
   it('邮箱格式非法 → null（不查库、不调 bcrypt）', async () => {
-    const result = await authorizeCredentials({ email: 'not-email', password: '123456' });
+    const result = await authorizeCredentials({ email: 'not-email', password: 'Pass1234' });
     expect(result).toBeNull();
     expect(mockedFindUnique).not.toHaveBeenCalled();
     expect(mockedCompare).not.toHaveBeenCalled();
   });
 
-  it('密码 < 6 位 → null（不查库、不调 bcrypt）', async () => {
-    const result = await authorizeCredentials({ email: 'a@b.com', password: '12345' });
+  it('密码 < 8 位 → null（不查库、不调 bcrypt）', async () => {
+    const result = await authorizeCredentials({ email: 'a@b.com', password: 'Pass123' });
+    expect(result).toBeNull();
+    expect(mockedFindUnique).not.toHaveBeenCalled();
+    expect(mockedCompare).not.toHaveBeenCalled();
+  });
+
+  it('密码无字母 → null（不查库、不调 bcrypt）', async () => {
+    const result = await authorizeCredentials({ email: 'a@b.com', password: '12345678' });
+    expect(result).toBeNull();
+    expect(mockedFindUnique).not.toHaveBeenCalled();
+    expect(mockedCompare).not.toHaveBeenCalled();
+  });
+
+  it('密码无数字 → null（不查库、不调 bcrypt）', async () => {
+    const result = await authorizeCredentials({ email: 'a@b.com', password: 'Password' });
     expect(result).toBeNull();
     expect(mockedFindUnique).not.toHaveBeenCalled();
     expect(mockedCompare).not.toHaveBeenCalled();
@@ -59,7 +73,7 @@ describe('authorizeCredentials (登录校验)', () => {
   it('触发限流 → null（不查库）', async () => {
     mockedRateLimit.mockReturnValueOnce(false);
 
-    const result = await authorizeCredentials({ email: 'a@b.com', password: '123456' });
+    const result = await authorizeCredentials({ email: 'a@b.com', password: 'Pass1234' });
 
     expect(result).toBeNull();
     expect(mockedFindUnique).not.toHaveBeenCalled();
@@ -72,7 +86,7 @@ describe('authorizeCredentials (登录校验)', () => {
   it('用户不存在 → null（不调 bcrypt）', async () => {
     mockedFindUnique.mockResolvedValueOnce(null as never);
 
-    const result = await authorizeCredentials({ email: 'nobody@example.com', password: '12345678' });
+    const result = await authorizeCredentials({ email: 'nobody@example.com', password: 'Pass1234' });
 
     expect(result).toBeNull();
     expect(mockedCompare).not.toHaveBeenCalled();
@@ -86,7 +100,7 @@ describe('authorizeCredentials (登录校验)', () => {
       password: null,
     } as never);
 
-    const result = await authorizeCredentials({ email: 'oauth@b.com', password: '12345678' });
+    const result = await authorizeCredentials({ email: 'oauth@b.com', password: 'Pass1234' });
 
     expect(result).toBeNull();
     expect(mockedCompare).not.toHaveBeenCalled();
@@ -101,7 +115,7 @@ describe('authorizeCredentials (登录校验)', () => {
     } as never);
     mockedCompare.mockResolvedValueOnce(false as never);
 
-    const result = await authorizeCredentials({ email: 'a@b.com', password: 'wrong-password' });
+    const result = await authorizeCredentials({ email: 'a@b.com', password: 'Wrong1234' });
 
     expect(result).toBeNull();
     expect(mockedCompare).toHaveBeenCalledOnce();
@@ -126,29 +140,8 @@ describe('authorizeCredentials (登录校验)', () => {
     expect(compareArgs[1]).toBe('$2a$10$hash');
   });
 
-  it('密码 6-7 位（通过 schema 但 DB hash 是 8+ 位）→ schema 通过但 bcrypt 失败', async () => {
-    // 这个测试明确断言"密码策略不一致不是 bug"：
-    // - 注册路由要求 8 位 + 字母 + 数字
-    // - 登录 authorize 只要求 6 位
-    // - 但 6-7 位密码在 DB 里找不到匹配的 hash，bcrypt.compare 一定返回 false
-    mockedFindUnique.mockResolvedValueOnce({
-      id: 'u1',
-      email: 'a@b.com',
-      name: 'A',
-      password: '$2a$10$hash',
-    } as never);
-    mockedCompare.mockResolvedValueOnce(false as never);
-
-    const result = await authorizeCredentials({ email: 'a@b.com', password: '1234567' });
-
-    // schema 通过（密码 7 位 ≥ 6），但 bcrypt 失败
-    expect(result).toBeNull();
-    expect(mockedFindUnique).toHaveBeenCalledOnce();
-    expect(mockedCompare).toHaveBeenCalledOnce();
-  });
-
   it('凭据字段缺失（email 为 undefined）→ null', async () => {
-    const result = await authorizeCredentials({ password: '12345678' });
+    const result = await authorizeCredentials({ password: 'Pass1234' });
     expect(result).toBeNull();
     expect(mockedFindUnique).not.toHaveBeenCalled();
   });

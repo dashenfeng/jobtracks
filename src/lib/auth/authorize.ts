@@ -7,10 +7,13 @@ import { rateLimit } from '@/lib/auth/rate-limit';
 /**
  * 登录校验逻辑（独立模块，便于单元测试，不依赖 next-auth）
  *
- * 校验策略说明：
- * - 注册路由要求 min(8) + 字母 + 数字（强密码）
- * - 登录只要求 min(6)（宽松校验，兼容历史用户 + 防无效请求打 DB）
- * - 即使传 6-7 位密码能通过 schema，bcrypt.compare 也会失败（DB 里的 hash 都至少 8 位）
+ * 校验策略：与注册路由保持一致
+ * - 邮箱：z.string().email()
+ * - 密码：min(8) + 字母 + 数字（注册路由同款校验）
+ *
+ * 设计说明：
+ * - 项目从零开发，注册时即强制 8 位 + 字母 + 数字，DB 里无 < 8 位的密码
+ * - 登录用相同 schema，让 6-7 位无效请求在 schema 阶段短路，不查库
  *
  * @returns 返回 { id, email, name } 或 null
  */
@@ -18,7 +21,11 @@ export async function authorizeCredentials(credentials: unknown) {
   const parsed = z
     .object({
       email: z.string().email(),
-      password: z.string().min(6),
+      password: z
+        .string()
+        .min(8, '密码至少 8 位')
+        .regex(/[a-zA-Z]/, '密码必须包含字母')
+        .regex(/\d/, '密码必须包含数字'),
     })
     .safeParse(credentials);
 
