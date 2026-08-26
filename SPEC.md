@@ -1,9 +1,9 @@
 # 职迹 - 个人求职工作台 技术规格说明书
 
-> **文档版本**：v3.6.2  
+> **文档版本**：v3.7.0  
 > **最后更新**：2026-08-04  
 > **技术栈锁定版本**  
-> **本次更新**：登录校验策略与注册统一（min(8) + 字母 + 数字），消除"兼容历史用户"的误导注释；测试总数 180 → 181
+> **本次更新**：生产化加固（P0 错误边界 + P0 环境变量校验 + P1 安全 headers + P1 健康检查 + P2 middleware 统一 CSRF）；测试总数 181 → 188
 
 ---
 
@@ -936,13 +936,13 @@ _resetRateLimitForTest(): void  // 测试隔离用
 
 注册和登录均用同一 Zod schema 校验：最少 8 位，必须包含字母 + 数字。项目从零开发，DB 里所有 hash 都满足此要求，登录用同款校验让 6-7 位无效请求在 schema 阶段短路，不查库。
 
-### 13.4 API 测试（Vitest，✅ 181 个用例全绿）
+### 13.4 API 测试（Vitest，✅ 188 个用例全绿）
 
 ```bash
 pnpm add -D vitest@4.1.9 @vitest/coverage-v8
 ```
 
-#### 测试文件清单（18 个文件）
+#### 测试文件清单（20 个文件）
 
 | 文件 | 用例数 | 覆盖范围 |
 |------|--------|----------|
@@ -950,6 +950,7 @@ pnpm add -D vitest@4.1.9 @vitest/coverage-v8
 | `lib/auth/__tests__/rate-limit.test.ts` | 9 | 计数/窗口重置/多 key 隔离 |
 | `lib/auth/__tests__/verify-token.test.ts` | 10 | 签发/校验/篡改/过期 |
 | `lib/auth/__tests__/authorize.test.ts` | 11 | 登录校验：schema（8 位 + 字母 + 数字）/限流/用户不存在/OAuth password=null/bcrypt 失败/成功登录 |
+| `lib/__tests__/env.test.ts` | 6 | 环境变量校验：合法/缺省默认值/缺失 throw |
 | `lib/crypto/__tests__/aes.test.ts` | 11 | 加解密/IV 唯一性/错误密钥 |
 | `lib/validations/__tests__/envvault.test.ts` | 14 | Zod schema 各种输入 |
 | `lib/__tests__/utils.test.ts` | 10 | cn/formatDate/maskSalary |
@@ -963,7 +964,8 @@ pnpm add -D vitest@4.1.9 @vitest/coverage-v8
 | `app/api/changelogs/__tests__/route.test.ts` | 12 | 列表筛选/创建/版本号唯一/审计日志 |
 | `app/api/snapshots/__tests__/route.test.ts` | 15 | 列表多筛选/创建/contentLength/baseline 校验 |
 | `app/api/envvault/[id]/reveal/__tests__/route.test.ts` | 8 | CSRF/二次认证/限流/解密/viewCount 累计/审计 |
-| `app/api/ai-agent/__tests__/route.test.ts` | 8 | CSRF/鉴权/限流/messages 校验/streamText 调用 |
+| `app/api/ai-agent/__tests__/route.test.ts` | 7 | CSRF/鉴权/限流/messages 校验/streamText 调用 |
+| `app/api/health/__tests__/route.test.ts` | 2 | DB 连通 → 200 ok / DB 不通 → 503 degraded |
 
 #### 测试覆盖策略
 
@@ -1075,8 +1077,21 @@ npx prisma migrate deploy
 
 ### 17.3 生产化加固
 
-- 限流从内存换 Upstash Redis（@upstash/redis + @upstash/ratelimit）
-- EnvVault 密钥轮换定时任务（Vercel Cron + 轮换策略 + 提前通知）
+#### 已完成（v3.7.0）
+
+- ✅ **P0 错误边界**：`app/error.tsx`（路由级，Card + 重试/回首页按钮）+ `app/global-error.tsx`（全局级，自带 html/body）+ `app/loading.tsx`（骨架屏，Skeleton 卡片占位）+ `app/not-found.tsx`（404 页面）
+- ✅ **P0 环境变量校验**：`lib/env.ts`（zod 校验 DATABASE_URL/AUTH_SECRET/AUTH_URL/DEEPSEEK_API_KEY/DEEPSEEK_MODEL/NODE_ENV，启动时缺失立即 throw，接入 db.ts + ai-agent route）
+- ✅ **P1 安全 headers**：`next.config.ts` 配置 X-Frame-Options: DENY + X-Content-Type-Options: nosniff + Referrer-Policy + Permissions-Policy + X-DNS-Prefetch-Control
+- ✅ **P1 健康检查**：`/api/health` GET 返回 `{ status, timestamp, uptime, checks: { db } }`，DB 不通返回 503
+- ✅ **P2 middleware 统一 CSRF**：`src/middleware.ts` 对所有 POST/PATCH/DELETE/PUT 做 Origin 校验，排除 `/api/auth/*`（NextAuth 自带 CSRF）和 `/api/health`（探活），路由里不再需要手动调 checkCsrf
+
+#### Phase 3 待办
+
+- ⏳ 限流从内存换 Upstash Redis（@upstash/redis + @upstash/ratelimit）
+- ⏳ EnvVault 密钥轮换定时任务（Vercel Cron + 轮换策略 + 提前通知）
+- ⏳ Next.js 缓存策略（`unstable_cache` + `revalidateTag`，Next.js 16 的 `revalidateTag` 新增必需参数 `profile`，需适配）
+- ⏳ CSP 严格策略（需处理 next/font + inline style 的 nonce）
+- ⏳ 错误监控接入 Sentry（免费版）
 
 ### 17.4 CI/CD
 

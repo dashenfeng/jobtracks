@@ -29,6 +29,17 @@ vi.mock('@/lib/auth/rate-limit', () => ({
   _resetRateLimitForTest: vi.fn(),
 }));
 
+vi.mock('@/lib/env', () => ({
+  env: {
+    DATABASE_URL: 'postgresql://test',
+    AUTH_SECRET: 'test-secret-32-chars-minimum!!',
+    AUTH_URL: 'http://localhost:3000',
+    DEEPSEEK_API_KEY: 'sk-test',
+    DEEPSEEK_MODEL: 'deepseek-v4-flash',
+    NODE_ENV: 'test',
+  },
+}));
+
 vi.mock('@/lib/ai/tools', () => ({
   agentTools: {},
 }));
@@ -130,16 +141,6 @@ describe('POST /api/ai-agent', () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
-  });
-
-  it('DEEPSEEK_API_KEY 未配置 → 500', async () => {
-    mockedAuth.mockResolvedValueOnce({ user: { id: 'u1' } } as never);
-    delete process.env.DEEPSEEK_API_KEY;
-
-    const res = await POST(makeRequest(validBody));
-    expect(res.status).toBe(500);
-    const body = await res.json();
-    expect(body.error).toContain('DEEPSEEK_API_KEY');
   });
 
   it('合法请求 → 调用 streamText 并返回流式响应', async () => {

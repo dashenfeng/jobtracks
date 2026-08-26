@@ -14,6 +14,7 @@ import { checkCsrf } from '@/lib/auth/csrf';
 import { rateLimit, getClientIp } from '@/lib/auth/rate-limit';
 import { agentTools } from '@/lib/ai/tools';
 import { SYSTEM_PROMPT } from '@/lib/ai/system-prompt';
+import { env } from '@/lib/env';
 
 // 强制 Node.js Runtime（DeepSeek SDK + Prisma 都不能在 Edge 跑）
 export const runtime = 'nodejs';
@@ -78,14 +79,8 @@ export async function POST(request: Request) {
   }
 
   // 5. 配置 DeepSeek（兼容 OpenAI 协议）
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = env.DEEPSEEK_API_KEY;
   const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'DeepSeek API Key 未配置（DEEPSEEK_API_KEY）' },
-      { status: 500 },
-    );
-  }
   const deepseek = createOpenAI({ apiKey, baseURL });
 
   // 6. 流式调用
@@ -93,7 +88,7 @@ export async function POST(request: Request) {
   // 但不支持 Responses API（/v1/responses）。@ai-sdk/openai v4 默认走 Responses API，
   // 所以必须用 `.chat()` 显式指定 Chat Completions，否则会 404。
   // 模型名：DeepSeek 当前仅支持 deepseek-v4-pro / deepseek-v4-flash（旧名 deepseek-chat 已废弃）
-  const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
+  const model = env.DEEPSEEK_MODEL;
   const result = streamText({
     model: deepseek.chat(model),
     instructions: SYSTEM_PROMPT,
