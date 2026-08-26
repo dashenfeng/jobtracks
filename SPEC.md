@@ -1,9 +1,9 @@
 # 职迹 - 个人求职工作台 技术规格说明书
 
-> **文档版本**：v3.5.0  
-> **最后更新**：2026-07-19  
+> **文档版本**：v3.6.0  
+> **最后更新**：2026-08-04  
 > **技术栈锁定版本**  
-> **本次更新**：AI Agent 完成（只读 9 工具 + DeepSeek 流式）；审计日志 CSV 导出 + targetType 筛选；移动端 Sidebar 抽屉；新增 CI/CD 章节
+> **本次更新**：通知系统完成（NotificationBell + 面试临近懒扫描 + 状态变更触发）；所有 P0/P1/P2 模块全部完成；测试章节刷新
 
 ---
 
@@ -29,7 +29,7 @@
 | P2 | Snapshot Diff | ✅ 完成 | 快照 CRUD + 多选对比 + 行级 LCS / JSON 深度 diff 智能切换 |
 | P2 | Changelog | ✅ 完成 | 版本管理 + 变更分类（NEW/FIX/IMPROVED/BREAKING）+ 截图归档 + 按类型分组展示 |
 | P2 | AI Agent | ✅ 完成 | 只读 9 工具（投递/面试/错题/快照/Changelog）+ DeepSeek + AI SDK v7 流式 |
-| P2 | 通知系统 | ⏳ 待开发 | 面试提醒 + 状态变更 + 站内通知中心 |
+| P2 | 通知系统 | ✅ 完成 | NotificationBell（桌面 Popover + 移动 Sheet）+ 面试临近懒扫描 + 投递状态变更触发 |
 
 ### 1.3 技术栈（已锁定 - 2026年7月最新）
 
@@ -936,13 +936,13 @@ _resetRateLimitForTest(): void  // 测试隔离用
 
 注册时 Zod 校验：最少 8 位，必须包含字母 + 数字。
 
-### 13.4 API 测试（Vitest，✅ 74 个用例全绿）
+### 13.4 API 测试（Vitest，✅ 170 个用例全绿）
 
 ```bash
 pnpm add -D vitest@4.1.9 @vitest/coverage-v8
 ```
 
-#### 测试文件清单（8 个文件）
+#### 测试文件清单（17 个文件）
 
 | 文件 | 用例数 | 覆盖范围 |
 |------|--------|----------|
@@ -952,8 +952,26 @@ pnpm add -D vitest@4.1.9 @vitest/coverage-v8
 | `lib/crypto/__tests__/aes.test.ts` | 11 | 加解密/IV 唯一性/错误密钥 |
 | `lib/validations/__tests__/envvault.test.ts` | 14 | Zod schema 各种输入 |
 | `lib/__tests__/utils.test.ts` | 10 | cn/formatDate/maskSalary |
+| `lib/notifications/__tests__/service.test.ts` | 7 | 面试提醒扫描/状态变更通知（去重、空数据、状态相同）|
 | `app/api/applications/__tests__/route.test.ts` | 6 | 列表筛选/分页 |
+| `app/api/applications/analytics/__tests__/route.test.ts` | 4 | 空数据/有数据聚合/漏斗/面试率 |
 | `app/api/auth/register/__tests__/route.test.ts` | 8 | 注册 + 限流 + 密码强度 |
+| `app/api/interviews/__tests__/route.test.ts` | 27 | interviews + [id] + questions + review（含状态/时间/CSRF/404）|
+| `app/api/notifications/__tests__/route.test.ts` | 9 | 列表 + 未读数 + 全部已读/清空 + 参数校验 |
+| `app/api/notifications/[id]/__tests__/route.test.ts` | 6 | 单条标记已读/删除 + userId 隔离 |
+| `app/api/changelogs/__tests__/route.test.ts` | 12 | 列表筛选/创建/版本号唯一/审计日志 |
+| `app/api/snapshots/__tests__/route.test.ts` | 15 | 列表多筛选/创建/contentLength/baseline 校验 |
+| `app/api/envvault/[id]/reveal/__tests__/route.test.ts` | 8 | CSRF/二次认证/限流/解密/viewCount 累计/审计 |
+| `app/api/ai-agent/__tests__/route.test.ts` | 8 | CSRF/鉴权/限流/messages 校验/streamText 调用 |
+
+#### 测试覆盖策略
+
+- **lib 层**：纯函数 + 加密 + 校验，无 mock，直接验证逻辑
+- **API 层**：mock 掉 prisma + auth + 外部 SDK（DeepSeek/AI SDK），用 Request 对象构造请求
+- **CSRF 优先级**：CSRF 检查在 auth 之前，缺少 Origin 直接 403，auth 不应被调用
+- **userId 隔离**：所有查询都断言 `where.userId === session.user.id`
+- **审计日志**：mutation 路由验证 `auditLog.create` 被调用且含正确 action/targetType/metadata
+- **限流维度**：register 按 IP，ai-agent 按 userId，envvault reveal 按 IP
 
 #### vitest.config.ts
 
@@ -1046,12 +1064,13 @@ npx prisma migrate deploy
 - **审计日志导出**（✅ 已完成）：CSV 导出（RFC 4180 + UTF-8 BOM）+ targetType 筛选 + 按 targetType 智能提取键名/版本
 - **移动端 Sidebar 抽屉**（✅ 已完成）：汉堡菜单 + Sheet 左滑出 + 路由切换自动关闭 + SidebarContent 桌面/移动复用
 
-### 17.2 通知系统（⏳ 待开发）
+### 17.2 通知系统（✅ 已完成）
 
-- 站内通知中心（铃铛 + 未读数 + 列表 + 标记已读）
-- 面试临近提醒（自动扫描面试日程，提前 N 小时/天生成通知）
-- 投递状态变更通知（CRUD 触发）
-- 邮件通知（可选，Phase 3）
+- ✅ 站内通知中心（NotificationBell：桌面 Popover + 移动 Sheet + 未读数 Badge + 标记已读/清空/单条删除）
+- ✅ 面试临近提醒（懒扫描策略：访问 /api/notifications 时触发 scanInterviewReminders，按 metadata.interviewId 在 7 天内去重）
+- ✅ 投递状态变更通知（`/api/applications/[id]/status` PATCH 时调 notifyApplicationStatusChanged，异步 .catch 不阻塞主流程）
+- ✅ 10 秒轮询未读数（仅在 unreadCount 变化时更新 state，避免无谓重渲染顶关 Popover）
+- ⏳ 邮件通知（可选，Phase 3 未做）
 
 ### 17.3 生产化加固
 
