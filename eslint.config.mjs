@@ -17,6 +17,13 @@ const eslintConfig = defineConfig([
       "react-hooks/refs": "off",
     },
   },
+  {
+    // 测试文件允许显式 any：mock 调用参数断言需要绕过 prisma 联合类型的链式访问
+    files: ["src/**/__tests__/**/*.ts", "src/**/*.test.ts", "src/**/*.spec.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

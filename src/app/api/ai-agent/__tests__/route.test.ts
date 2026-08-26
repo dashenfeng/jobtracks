@@ -42,7 +42,6 @@ import { auth } from '@/lib/auth/full-config';
 import { checkCsrf } from '@/lib/auth/csrf';
 import { rateLimit, _resetRateLimitForTest } from '@/lib/auth/rate-limit';
 import { streamText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { NextResponse } from 'next/server';
 
 const mockedAuth = vi.mocked(auth);

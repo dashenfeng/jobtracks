@@ -74,21 +74,6 @@ function makeContext(id: string) {
   return { params: Promise.resolve({ id }) };
 }
 
-function makeJsonRequest(
-  method: 'POST' | 'PATCH' | 'DELETE',
-  body?: unknown,
-): Request {
-  return new Request('http://localhost:3000/api/interviews', {
-    method,
-    headers: {
-      'content-type': 'application/json',
-      origin: ORIGIN,
-      host: HOST,
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    },
-  });
-}
-
 describe('GET /api/interviews', () => {
   beforeEach(() => {
     vi.clearAllMocks();

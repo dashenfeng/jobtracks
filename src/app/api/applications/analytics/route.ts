@@ -9,7 +9,7 @@ import { STATUS_MAP, CHANNEL_MAP } from '@/lib/constants/applications';
  * 数据分析：聚合投递数据，返回趋势/分布/漏斗/指标
  * 求职数据量小，一次 findMany + JS 聚合，避免多次 groupBy
  */
-export async function GET(_request: Request) {
+export async function GET(_request?: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: '未登录' }, { status: 401 });
